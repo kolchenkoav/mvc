@@ -1,8 +1,10 @@
 package view;
 
+import controller.Controller;
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.WindowListener;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 //Метод setDefaultCloseOperation класса JFrame.
 // С помощью данного метода разработчик говорит JFrame, который он создает, что необходимо сделать при закрытии окна.
@@ -13,6 +15,11 @@ public class View extends JFrame {
     private JTextArea textArea;
     private JButton sendButton;
     private  JLabel info;
+
+    private Controller controller;
+    public View(Controller controller) {
+        this.controller = controller;
+    }
 
     //private static WindowListener WL;
 
@@ -33,29 +40,58 @@ public class View extends JFrame {
 
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
-
         textArea = new JTextArea();
         sendButton = new JButton("Send");
-        info = new JLabel("Info");
+        info = new JLabel("");
 
         add(textArea, BorderLayout.CENTER);
         add(sendButton, BorderLayout.SOUTH);
         add(info, BorderLayout.NORTH);
 
+        /**
+         * Обработка нажатия кнопки
+         */
         sendButton.addActionListener(e -> {
             int pin;
-            String textPin = this.textArea.setText();
-            pin = Integer.parseInt(textPin);
+            String textPin = this.textArea.getText().trim();
+            textArea.setText("");
+            try {
+                String pattern = "(?=.*[0-9]).{4,}";
+                if (textPin.matches(pattern)) {
+                    pin = Integer.parseInt(textPin);
+                    info.setText("Got it: " + textPin + " waiting...");
 
-            info.setText("Got it");
+                    // обработка Pin-кода
+                    AtomicBoolean result = new AtomicBoolean(false);
+                    Thread thread = new Thread(() -> {
+                        sendButton.setEnabled(false);
+                        textArea.setEnabled(false);
+                        result.set(controller.checkPin(pin));
+                        String resultMessage;
+                        if (result.get()) {
+                            resultMessage = "Right";
+                        } else {
+                            resultMessage = "Wrong, try again";
+                        }
+                        info.setText(resultMessage);
+                        textArea.setText("");
+                        textArea.setEnabled(true);
+                        sendButton.setEnabled(true);
+                    });
+                    thread.start();
 
-            // обработка Pin-кода
+                } else {
+                    info.setText("Only numbers allowed...");
+                    textArea.setText("");
+                }
+
+            } catch (NumberFormatException exception) {
+                exception.printStackTrace();
+            }
+
         });
 
         setVisible(true);
-        //frame.show();
-        //setSize(400, 300);
-        //setVisible(true);
     }
 
     @Override
